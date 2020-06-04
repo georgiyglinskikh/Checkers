@@ -126,6 +126,8 @@ void Checkers_draw(sfRenderWindow *renderWindow, sfRectangleShape *shape) {
 /** What check is current now */
 sfVector2i Checkers_checkedPosition;
 
+enum CheckersType Checkers_lastCheck;
+
 /** Change current check */
 void Checkers_react(sfVector2i position) {
     if (Checkers_field[position.x][position.y] == black) {
@@ -146,16 +148,20 @@ void Checkers_react(sfVector2i position) {
             Checkers_field[position.x - 1][position.y - 1] = available;
         }
     } else if (Checkers_field[position.x][position.y] == available) {
-        Checkers_field[position.x][position.y] =
-                Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y];
+        if (Checkers_lastCheck != Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y]) {
+            Checkers_field[position.x][position.y] =
+                    Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y];
 
-        Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y] = none;
+            Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y] = none;
 
-        for (int i = 0; i < FIELD_WIDTH; ++i) {
-            for (int j = 0; j < FIELD_HEIGHT; ++j) {
-                if (Checkers_field[i][j] == available)
-                    Checkers_field[i][j] = none;
+            for (int i = 0; i < FIELD_WIDTH; ++i) {
+                for (int j = 0; j < FIELD_HEIGHT; ++j) {
+                    if (Checkers_field[i][j] == available)
+                        Checkers_field[i][j] = none;
+                }
             }
+
+            Checkers_lastCheck = Checkers_field[position.x][position.y];
         }
     }
 }
