@@ -21,8 +21,6 @@ void Game_create() {
 
     Checkers_create();
 
-    Checkers_log();
-
     rect = sfRectangleShape_create();
 }
 
