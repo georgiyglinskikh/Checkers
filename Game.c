@@ -7,8 +7,10 @@
 /** Window that checkers are drawn */
 sfRenderWindow *Game_renderWindow;
 
+/** Checkers + field are drawn using this shape */
 sfRectangleShape *rect;
 
+/** Create window + field */
 void Game_create() {
     // Build window mode from settings
     sfVideoMode mode = {.width = WIDTH, .height = HEIGHT, .bitsPerPixel = 32};
@@ -19,15 +21,36 @@ void Game_create() {
     // Remove tearing
     sfRenderWindow_setVerticalSyncEnabled(Game_renderWindow, 1);
 
+    // Fill field using default values
     Checkers_create();
 
+    // Create + make available rectangle shape
     rect = sfRectangleShape_create();
 }
 
-void Game_draw();
+/** Draw all on screen */
+void Game_draw() {
+    // Draw field + checkers on screen
+    Checkers_draw(Game_renderWindow, rect);
+}
 
-void Game_update();
+/** Change checkers state */
+void Game_update() {
+    // React to mouse click
+    if (sfMouse_isButtonPressed(sfMouseLeft)) {
+        // Get mouse cursor position ->
+        sfVector2i mousePosition = sfMouse_getPosition(
+                (const sfWindow *) Game_renderWindow);
 
+        // Scale it to field coordinates ->
+        sfVector2i mouseScaledPosition = Checkers_scaleFromScreen(Game_renderWindow, mousePosition);
+
+        // Update field using it
+        Checkers_react(mouseScaledPosition);
+    }
+}
+
+/** Main game loop */
 void Game_run() {
     /** Event for dispatching */
     sfEvent event;
@@ -44,26 +67,14 @@ void Game_run() {
         // Clear screen
         sfRenderWindow_clear(Game_renderWindow, sfBlack);
 
-        Game_draw();
+        Game_draw(); // Draw all on screen
 
         // Display all game objects on screen
         sfRenderWindow_display(Game_renderWindow);
 
-        Game_update();
+        Game_update(); // Update scene depending on mouse clicks
     }
 }
 
-void Game_draw() {
-    Checkers_draw(Game_renderWindow, rect);
-}
-
-void Game_update() {
-    if (sfMouse_isButtonPressed(sfMouseLeft)) {
-        Checkers_react(Checkers_scaleFromScreen(Game_renderWindow, sfMouse_getPosition(
-                (const sfWindow *) Game_renderWindow)));
-    }
-}
-
-void Game_destroy() {
-
-}
+/** Free resources */
+void Game_destroy() {}

@@ -23,6 +23,7 @@ void Checkers_create() {
                 Checkers_field[i][j].type = none;
             }
 
+            // All checkers are small by default
             Checkers_field[i][j].isBig = 0;
         }
     }
@@ -42,7 +43,7 @@ void Checkers_log() {
 }
 
 /** Scale vector to draw on screen */
-sfVector2f Checkers_scaleToScreen(sfRenderWindow *renderWindow, sfVector2i pos) {
+sfVector2f Checkers_scaleToScreen(sfRenderWindow *renderWindow, sfVector2i fieldPosition) {
     // Save window size to save resources
     sfVector2u win_size = sfRenderWindow_getSize(renderWindow);
 
@@ -50,12 +51,12 @@ sfVector2f Checkers_scaleToScreen(sfRenderWindow *renderWindow, sfVector2i pos) 
      *      x' = x / width * screen width
      *      y' = y / height * screen height
      * } -- It convert field positions to draw on screen */
-    return (sfVector2f) {.x = (float) pos.x / (float) FIELD_WIDTH * (float) win_size.x,
-            .y = (float) pos.y / (float) FIELD_HEIGHT * (float) win_size.y};
+    return (sfVector2f) {.x = (float) fieldPosition.x / (float) FIELD_WIDTH * (float) win_size.x,
+            .y = (float) fieldPosition.y / (float) FIELD_HEIGHT * (float) win_size.y};
 }
 
 /** Scale vector to get clicks from screen */
-sfVector2i Checkers_scaleFromScreen(sfRenderWindow *renderWindow, sfVector2i vec) {
+sfVector2i Checkers_scaleFromScreen(sfRenderWindow *renderWindow, sfVector2i screenPosition) {
     // Save window size to save resources
     sfVector2u win_size = sfRenderWindow_getSize(renderWindow);
 
@@ -63,8 +64,8 @@ sfVector2i Checkers_scaleFromScreen(sfRenderWindow *renderWindow, sfVector2i vec
      *      x' = x / screen width * width
      *      y' = y / screen height *  height
      * } -- It convert click position to field one */
-    return (sfVector2i) {.x = (int) ((float) vec.x / (float) win_size.x * FIELD_WIDTH),
-            .y = (int) ((float) vec.y / (float) win_size.y * FIELD_HEIGHT)};
+    return (sfVector2i) {.x = (int) ((float) screenPosition.x / (float) win_size.x * FIELD_WIDTH),
+            .y = (int) ((float) screenPosition.y / (float) win_size.y * FIELD_HEIGHT)};
 }
 
 /** Draw field on given window */
@@ -130,62 +131,105 @@ void Checkers_draw(sfRenderWindow *renderWindow, sfRectangleShape *shape) {
 /** What check is current now */
 sfVector2i Checkers_checkedPosition;
 
+/** Last type cant step again */
 enum CheckersType Checkers_lastCheck;
 
+/** Checks if point is belong to field
+ * @returns Does point belongs to field
+ * */
 int Checkers_isInField(sfVector2i pos) {
     return pos.x >= 0 && pos.y >= 0 &&
            pos.x < FIELD_WIDTH && pos.y < FIELD_HEIGHT;
 }
 
-sfVector2i Checkers_plus(sfVector2i position, sfVector2i plus) {
-    return (sfVector2i) {.x = position.x + plus.x, .y = position.y + plus.y};
+/** Sum up field position + offset
+ * @param position Field position
+ * @param offset offset
+ * @returns New field coordinates with offset
+ * */
+sfVector2i Checkers_plus(sfVector2i position, sfVector2i offset) {
+    return (sfVector2i) {.x = position.x + offset.x, .y = position.y + offset.y};
 }
 
-sfVector2i Checkers_mul(sfVector2i position, sfVector2i mul) {
-    return (sfVector2i) {.x = position.x * mul.x, .y = position.y * mul.y};
+/** Multiply field position with some coefficient
+ * @param position Field position
+ * @param coefficient Coefficient
+ * */
+sfVector2i Checkers_mul(sfVector2i position, sfVector2i coefficient) {
+    return (sfVector2i) {.x = position.x * coefficient.x, .y = position.y * coefficient.y};
 }
 
-void Checkers_makeAvailableLoop(sfVector2i position, sfVector2i mul) {
-    int i = 0;
+/** Make checker available in cross part
+ * @param position Field position
+ * @param coefficient Two values in range (-1 - 1) - direction of cross part
+ * */
+void Checkers_makeAvailableLoop(sfVector2i position, sfVector2i coefficient) {
+    int offset = 0; // Counter
 
-    sfVector2i j;
+    sfVector2i nextAvailablePoint; // Next available point
     while (1) {
-        i++;
-        j = Checkers_plus(position, Checkers_mul((sfVector2i) {.x = i, .y = i}, mul));
+        offset++; // Start incrementing offset while it is belong screen
 
-        if (Checkers_isInField(j) && Checkers_field[j.x][j.y].type == none)
-            Checkers_field[j.x][j.y].type = available;
+        // Calculate new point using offset
+        nextAvailablePoint = Checkers_plus(position,
+                                           Checkers_mul((sfVector2i) {.x = offset, .y = offset}, coefficient));
+
+        // Continue loop if point belongs to field & point type is none
+        if (Checkers_isInField(nextAvailablePoint) &&
+            Checkers_field[nextAvailablePoint.x][nextAvailablePoint.y].type == none)
+            Checkers_field[nextAvailablePoint.x][nextAvailablePoint.y].type = available;
         else
             break;
     }
 }
 
+/** Make available cross with center in position (for big checkers)
+ * @param position Field position
+ * */
 void Checkers_makeAvailableCross(sfVector2i position) {
+    // Left - Bottom part of cross
     Checkers_makeAvailableLoop(position, (sfVector2i) {.x = 1, .y = 1});
+
+    // Left - Top part of cross
     Checkers_makeAvailableLoop(position, (sfVector2i) {.x = 1, .y = -1});
+
+    // Right - Bottom part of cross
     Checkers_makeAvailableLoop(position, (sfVector2i) {.x = -1, .y = 1});
+
+    // Right - Top part of cross
     Checkers_makeAvailableLoop(position, (sfVector2i) {.x = -1, .y = -1});
 }
 
+/** Make available next two parts (for small checkers)
+ * @param position Field position
+ * @param type Checker type (White | Black)
+ * */
 void Checkers_makeAvailableNearest(sfVector2i position, enum CheckersType type) {
-    int mul;
+    int coefficient;
+
+    // if type is black or white continue
+    // else stop
     if (type == black)
-        mul = 1;
+        coefficient = 1;
     else if (type == white)
-        mul = -1;
+        coefficient = -1;
     else
         return;
 
-    if (Checkers_field[position.x + 1][position.y + mul].type == none)
-        Checkers_field[position.x + 1][position.y + mul].type = available;
-
-    if (Checkers_field[position.x - 1][position.y + mul].type == none)
-        Checkers_field[position.x - 1][position.y + mul].type = available;
+    // Make available:
+    // Upper checker
+    if (Checkers_field[position.x + 1][position.y + coefficient].type == none)
+        Checkers_field[position.x + 1][position.y + coefficient].type = available;
+    // Down checker
+    if (Checkers_field[position.x - 1][position.y + coefficient].type == none)
+        Checkers_field[position.x - 1][position.y + coefficient].type = available;
 }
 
 /** Change current check */
 void Checkers_react(sfVector2i position) {
-    if (Checkers_field[position.x][position.y].type == black || Checkers_field[position.x][position.y].type == white) {
+    if (Checkers_field[position.x][position.y].type == black ||
+        Checkers_field[position.x][position.y].type == white) {
+        // Clear old available checkers
         for (int i = 0; i < FIELD_WIDTH; ++i) {
             for (int j = 0; j < FIELD_HEIGHT; ++j) {
                 if (Checkers_field[i][j].type == available)
@@ -193,21 +237,26 @@ void Checkers_react(sfVector2i position) {
             }
         }
 
+        // Makes click position (in field) current
         Checkers_checkedPosition = position;
 
         if (Checkers_field[position.x][position.y].isBig)
-            Checkers_makeAvailableCross(position);
+            Checkers_makeAvailableCross(position); // Draw cross
         else
-            Checkers_makeAvailableNearest(position, Checkers_field[position.x][position.y].type);
+            Checkers_makeAvailableNearest(position, Checkers_field[position.x][position.y].type); // Draw small crosses
     } else if (Checkers_field[position.x][position.y].type == available &&
                Checkers_lastCheck != Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y].type) {
+        // Replace available position with black or white checker
         Checkers_field[position.x][position.y] =
                 Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y];
 
+        // Make old checked position empty
         Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y].type = none;
 
+        // Change next step`s type
         Checkers_lastCheck = Checkers_field[position.x][position.y].type;
 
+        // If check if on the edge of field, make it big
         if (Checkers_lastCheck == white && position.y == 0 ||
             Checkers_lastCheck == black && position.y == FIELD_HEIGHT - 1)
             Checkers_field[position.x][position.y].isBig = 1;
