@@ -188,12 +188,12 @@ void Checkers_makeAvailableLoop(sfVector2i position, sfVector2i coefficient) {
                                            Checkers_mul((sfVector2i) {.x = offset, .y = offset}, coefficient));
 
         if ((Checkers_field[nextAvailablePoint.x][nextAvailablePoint.y].type == black ||
-            Checkers_field[nextAvailablePoint.x][nextAvailablePoint.y].type == white) && !wasChecker)
+             Checkers_field[nextAvailablePoint.x][nextAvailablePoint.y].type == white) && !wasChecker)
             wasChecker = 1;
 
         // Continue loop if point belongs to field & point type is none
         if (Checkers_isInField(nextAvailablePoint) &&
-                 Checkers_field[nextAvailablePoint.x][nextAvailablePoint.y].type == none)
+            Checkers_field[nextAvailablePoint.x][nextAvailablePoint.y].type == none)
             Checkers_field[nextAvailablePoint.x][nextAvailablePoint.y].type = available;
         else
             break;
@@ -252,6 +252,30 @@ void Checkers_makeAvailableNearest(sfVector2i position, enum CheckersType type) 
             Checkers_field[position.x - 2 * offsetX][position.y + 2 * coefficient].type = available;
 }
 
+int Checkers_removeEatenChecker(sfVector2i start, sfVector2i stop, enum CheckersType type) {
+    if (!(Checkers_isInField(start) && Checkers_isInField(stop)))
+        return (int) NULL;
+
+    sfVector2i coefficient =
+            {.x = stop.x - start.x > 0 ? 1 : -1,
+                    .y = stop.y - start.y > 0 ? 1 : -1};
+
+    sfVector2i current = start;
+
+    int wasEaten = 0;
+
+    while (current.x != stop.x && current.y != stop.y) {
+        current.x += coefficient.x;
+        current.y += coefficient.y;
+        if (Checkers_field[current.x][current.y].type == type) {
+            Checkers_field[current.x][current.y].type = none;
+            wasEaten = 1;
+        }
+    }
+
+    return wasEaten;
+}
+
 /** Change current check */
 void Checkers_react(sfVector2i position) {
     if (Checkers_field[position.x][position.y].type == black ||
@@ -271,11 +295,17 @@ void Checkers_react(sfVector2i position) {
             Checkers_makeAvailableCross(position); // Draw cross
             Checkers_makeAvailableNearest(position, black); // Draw small crosses
             Checkers_makeAvailableNearest(position, white); // Draw small crosses
-        }
-        else
+        } else
             Checkers_makeAvailableNearest(position, Checkers_field[position.x][position.y].type); // Draw small crosses
     } else if (Checkers_field[position.x][position.y].type == available &&
                Checkers_lastCheck != Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y].type) {
+        int wasEaten = 0;
+
+        if (Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y].type == white)
+            wasEaten = Checkers_removeEatenChecker(position, Checkers_checkedPosition, black);
+        else if (Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y].type == black)
+            wasEaten = Checkers_removeEatenChecker(position, Checkers_checkedPosition, white);
+
         // Replace available position with black or white checker
         Checkers_field[position.x][position.y] =
                 Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y];
@@ -283,8 +313,9 @@ void Checkers_react(sfVector2i position) {
         // Make old checked position empty
         Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y].type = none;
 
-        // Change next step`s type
-        Checkers_lastCheck = Checkers_field[position.x][position.y].type;
+        if (!wasEaten)
+            // Change next step`s type
+            Checkers_lastCheck = Checkers_field[position.x][position.y].type;
 
         // If check if on the edge of field, make it big
         if (Checkers_lastCheck == white && position.y == 0 ||
