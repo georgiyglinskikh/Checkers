@@ -142,7 +142,7 @@ void Checkers_draw(sfRenderWindow *renderWindow, sfRectangleShape *shape) {
 /** What check is current now */
 sfVector2i Checkers_checkedPosition;
 
-/** Last type cant step again */
+/** Last type cant turn again */
 enum CheckersType Checkers_lastCheck;
 
 /** Checks if point is belong to field
@@ -252,21 +252,33 @@ void Checkers_makeAvailableNearest(sfVector2i position, enum CheckersType type) 
             Checkers_field[position.x - 2 * offsetX][position.y + 2 * coefficient].type = available;
 }
 
+/** Remove all eater checkers after turn
+ * @param start Start field position
+ * @param stop End field position
+ * @returns Any checker was eaten
+ * */
 int Checkers_removeEatenChecker(sfVector2i start, sfVector2i stop, enum CheckersType type) {
+    // Checks if field position is belong to field
     if (!(Checkers_isInField(start) && Checkers_isInField(stop)))
         return (int) NULL;
 
+    /** Step size */
     sfVector2i coefficient =
             {.x = stop.x - start.x > 0 ? 1 : -1,
-                    .y = stop.y - start.y > 0 ? 1 : -1};
+                    .y = stop.y - start.y > 0 ? 1 : -1}; // Compute coefficient (step size in both directions)
 
-    sfVector2i current = start;
+    /** Counter */
+    sfVector2i current = start; // Set counter to start position
 
-    int wasEaten = 0;
+    /** Flag 'Was any checker eaten' */
+    int wasEaten = 0; // Set it to false by default
 
     while (current.x != stop.x && current.y != stop.y) {
+        // Next step
         current.x += coefficient.x;
         current.y += coefficient.y;
+
+        // If at current position there is checker, remove it & set flag to true
         if (Checkers_field[current.x][current.y].type == type) {
             Checkers_field[current.x][current.y].type = none;
             wasEaten = 1;
@@ -314,8 +326,7 @@ void Checkers_react(sfVector2i position) {
         Checkers_field[Checkers_checkedPosition.x][Checkers_checkedPosition.y].type = none;
 
         if (!wasEaten)
-            // Change next step`s type
-            Checkers_lastCheck = Checkers_field[position.x][position.y].type;
+            Checkers_lastCheck = Checkers_field[position.x][position.y].type; // Change next turn`s type
 
         // If check if on the edge of field, make it big
         if (Checkers_lastCheck == white && position.y == 0 ||
